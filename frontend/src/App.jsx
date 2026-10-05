@@ -9,6 +9,8 @@ import { UFsList } from './components/ui/UFsList';
 import { Liquidaciones } from './components/ui/Liquidaciones';
 import { LiquidacionDetalle } from './components/ui/LiquidacionDetalle';
 import { Cobranzas } from './components/ui/Cobranzas';
+import { PropietariosList } from './components/ui/PropietariosList'; // NUEVO
+import { ProveedoresList } from './components/ui/ProveedoresList'; // NUEVO
 
 // Este componente decide qué Dashboard principal mostrar según el rol
 function EnrutadorPortal() {
@@ -26,20 +28,79 @@ function App() {
         <Route path="/" element={<Navigate to="/login" replace />} />
         <Route path="/login" element={<Login />} />
         
-        {/* Panel Principal */}
-        <Route path="/portal" element={<ProtectedRoute><Layout><EnrutadorPortal /></Layout></ProtectedRoute>} />
+        {/* Panel Principal - Abierto a cualquier usuario LOGUEADO (Admin o Vecino) */}
+        <Route 
+          path="/portal" 
+          element={
+            <ProtectedRoute>
+              <Layout><EnrutadorPortal /></Layout>
+            </ProtectedRoute>
+          } 
+        />
 
+        {/* --- RUTAS EXCLUSIVAS DEL ADMINISTRADOR --- */}
         {/* Consorcios y UFs */}
-        <Route path="/portal/consorcios" element={<ProtectedRoute><Layout><ConsorciosList /></Layout></ProtectedRoute>} />
-        <Route path="/portal/consorcios/:id/ufs" element={<ProtectedRoute><Layout><UFsList /></Layout></ProtectedRoute>} />
+        <Route 
+          path="/portal/consorcios" 
+          element={
+            <ProtectedRoute allowedRoles={['administrador']}>
+              <Layout><ConsorciosList /></Layout>
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/portal/consorcios/:id/ufs" 
+          element={
+            <ProtectedRoute allowedRoles={['administrador']}>
+              <Layout><UFsList /></Layout>
+            </ProtectedRoute>
+          } 
+        />
+
+        {/* Propietarios y Proveedores */}
+        <Route 
+          path="/portal/propietarios" 
+          element={
+            <ProtectedRoute allowedRoles={['administrador']}>
+              <Layout><PropietariosList /></Layout>
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/portal/proveedores" 
+          element={
+            <ProtectedRoute allowedRoles={['administrador']}>
+              <Layout><ProveedoresList /></Layout>
+            </ProtectedRoute>
+          } 
+        />
         
         {/* Liquidaciones (Grilla y Detalle) */}
-        <Route path="/portal/liquidaciones" element={<ProtectedRoute><Layout><Liquidaciones /></Layout></ProtectedRoute>} />
-        <Route path="/portal/liquidaciones/:id" element={<ProtectedRoute><Layout><LiquidacionDetalle /></Layout></ProtectedRoute>} />
-        {/* --- RUTA DE COBRANZAS --- */}
+        <Route 
+          path="/portal/liquidaciones" 
+          element={
+            <ProtectedRoute allowedRoles={['administrador']}>
+              <Layout><Liquidaciones /></Layout>
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/portal/liquidaciones/:id" 
+          element={
+            <ProtectedRoute allowedRoles={['administrador']}>
+              <Layout><LiquidacionDetalle /></Layout>
+            </ProtectedRoute>
+          } 
+        />
+        
+        {/* Cobranzas */}
         <Route 
           path="/portal/cobranzas" 
-          element={<ProtectedRoute><Layout><Cobranzas /></Layout></ProtectedRoute>} 
+          element={
+            <ProtectedRoute allowedRoles={['administrador']}>
+              <Layout><Cobranzas /></Layout>
+            </ProtectedRoute>
+          } 
         />
       </Routes>
     </BrowserRouter>

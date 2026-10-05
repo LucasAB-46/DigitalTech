@@ -1,19 +1,18 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Receipt, PlusCircle, X, Calculator, CheckCircle, Home } from 'lucide-react';
-import axios from 'axios';
+import api from '../../utils/api'; 
 
 export function LiquidacionDetalle() {
-  const { id } = useParams(); // Sacamos el ID de la liquidación de la URL
+  const { id } = useParams(); 
   const navigate = useNavigate();
   
   const [liquidacion, setLiquidacion] = useState(null);
   const [gastos, setGastos] = useState([]);
-  const [detallesUF, setDetallesUF] = useState([]); // <-- NUEVO: Guarda los resultados del cálculo
+  const [detallesUF, setDetallesUF] = useState([]); 
   const [proveedores, setProveedores] = useState([]);
   const [cargando, setCargando] = useState(true);
 
-  // Estados del Modal
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [formData, setFormData] = useState({
     liquidacion: id,
@@ -28,20 +27,17 @@ export function LiquidacionDetalle() {
   const fetchData = async () => {
     try {
       setCargando(true);
-      // 1. Traemos la info de la cabecera
-      const resLiq = await axios.get(`http://127.0.0.1:8000/api/liquidaciones/cabeceras/${id}/`);
+      const resLiq = await api.get(`liquidaciones/cabeceras/${id}/`);
       setLiquidacion(resLiq.data);
       
-      // 2. Traemos los gastos
-      const resGastos = await axios.get(`http://127.0.0.1:8000/api/liquidaciones/gastos/?liquidacion_id=${id}`);
+      const resGastos = await api.get(`liquidaciones/gastos/?liquidacion_id=${id}`);
       setGastos(resGastos.data);
 
-      // 3. NUEVO: Traemos los detalles del prorrateo (si ya está cerrado, va a traer la lista de expensas)
-      const resDetalles = await axios.get(`http://127.0.0.1:8000/api/liquidaciones/detalles-uf/?liquidacion_id=${id}`);
+      const resDetalles = await api.get(`liquidaciones/detalles-uf/?liquidacion_id=${id}`);
       setDetallesUF(resDetalles.data);
 
-      // 4. Traemos los proveedores para el desplegable
-      const resProv = await axios.get('http://127.0.0.1:8000/api/proveedores/');
+      // --- RUTA CORREGIDA A 'proveedores/' ---
+      const resProv = await api.get('proveedores/');
       setProveedores(resProv.data);
 
       setCargando(false);
@@ -58,15 +54,13 @@ export function LiquidacionDetalle() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    // Si no elige proveedor, mandamos null para no romper Django
     const dataToSend = { ...formData };
     if (!dataToSend.proveedor) dataToSend.proveedor = null;
 
     try {
-      await axios.post('http://127.0.0.1:8000/api/liquidaciones/gastos/', dataToSend);
+      await api.post('liquidaciones/gastos/', dataToSend);
       setIsModalOpen(false);
       
-      // Limpiamos el formulario
       setFormData({
         liquidacion: id,
         proveedor: '',
@@ -77,25 +71,20 @@ export function LiquidacionDetalle() {
         tipo_gasto: 'ORDINARIO'
       });
       
-      // Recargamos la grilla
       fetchData(); 
     } catch (error) {
       console.error("Error al guardar gasto:", error.response?.data);
-      alert("Hubo un error al guardar el gasto. Mirá la consola.");
+      alert("Hubo un error al guardar el gasto: " + JSON.stringify(error.response?.data || error.message));
     }
   };
 
-  // --- NUEVA FUNCIÓN: EL BOTÓN MÁGICO ---
   const handleProrratear = async () => {
     const confirmar = window.confirm("¿Estás seguro de cerrar la liquidación? Se calcularán las expensas de cada unidad y ya no se podrán agregar más gastos.");
     if (!confirmar) return;
 
     try {
       setCargando(true);
-      // Le pegamos a la ruta nueva que creamos en el backend
-      await axios.post(`http://127.0.0.1:8000/api/liquidaciones/cabeceras/${id}/prorratear/`);
-      
-      // Si todo sale bien, recargamos la página entera para ver la nueva tabla
+      await api.post(`liquidaciones/cabeceras/${id}/prorratear/`);
       fetchData(); 
     } catch (error) {
       console.error("Error al prorratear:", error);
@@ -110,7 +99,6 @@ export function LiquidacionDetalle() {
     return p ? p.razon_social : '-';
   };
 
-  // Calculamos el total de gastos sumando la grilla
   const totalGastos = gastos.reduce((sum, g) => sum + parseFloat(g.monto), 0);
 
   if (cargando) return <div className="p-8 text-gray-500 font-medium">Cargando detalle...</div>;
@@ -139,7 +127,6 @@ export function LiquidacionDetalle() {
             </p>
           </div>
           
-          {/* --- NUEVA BOTONERA DINÁMICA --- */}
           {esBorrador ? (
             <div className="flex gap-3">
               <button 
@@ -167,7 +154,6 @@ export function LiquidacionDetalle() {
         </div>
       </div>
 
-      {/* Tarjeta de Resumen */}
       <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex gap-12">
         <div>
           <p className="text-sm text-gray-500 font-bold mb-1">Total Gastos Cargados</p>
@@ -179,7 +165,6 @@ export function LiquidacionDetalle() {
         </div>
       </div>
 
-      {/* Grilla de Gastos */}
       <h2 className="text-xl font-bold text-gray-800 mt-8">Gastos Registrados</h2>
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
         {gastos.length === 0 ? (
@@ -220,8 +205,6 @@ export function LiquidacionDetalle() {
         )}
       </div>
 
-      {/* --- NUEVO: GRILLA DE EXPENSAS CALCULADAS --- */}
-      {/* Solo aparece si hay detalles cargados (es decir, si ya se prorrateó) */}
       {detallesUF.length > 0 && (
         <>
           <h2 className="text-xl font-bold text-gray-800 mt-10">Expensas por Unidad Funcional</h2>
@@ -263,7 +246,6 @@ export function LiquidacionDetalle() {
         </>
       )}
 
-      {/* --- MODAL PARA CARGAR GASTO --- */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden">

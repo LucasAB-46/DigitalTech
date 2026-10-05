@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
-import { FileText, Search, PlusCircle, X } from 'lucide-react';
-import axios from 'axios';
+import { FileText, Search, PlusCircle, X, Calendar } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import api from '../../utils/api';
 
 export function Liquidaciones() {
   const [consorcios, setConsorcios] = useState([]);
@@ -12,7 +12,7 @@ export function Liquidaciones() {
   const [liquidaciones, setLiquidaciones] = useState([]);
   const [cargando, setCargando] = useState(false);
 
-  // Estados del modal
+  // Estados del modal para crear Liquidación
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [formData, setFormData] = useState({
     consorcio: '',
@@ -22,18 +22,24 @@ export function Liquidaciones() {
     estado: 'BORRADOR'
   });
 
-  // Al cargar la pantalla, traemos los edificios y los períodos (meses)
-  useEffect(() => {
-    axios.get('http://127.0.0.1:8000/api/core/consorcios/')
+  // Estados para el modal de crear Período (Mes)
+  const [isPeriodoModalOpen, setIsPeriodoModalOpen] = useState(false);
+  const [nombrePeriodo, setNombrePeriodo] = useState('');
+
+  const fetchData = () => {
+    api.get('core/consorcios/')
       .then(res => setConsorcios(res.data))
       .catch(err => console.error("Error consorcios:", err));
 
-    axios.get('http://127.0.0.1:8000/api/core/periodos/')
+    api.get('core/periodos/')
       .then(res => setPeriodos(res.data))
       .catch(err => console.error("Error periodos:", err));
+  };
+
+  useEffect(() => {
+    fetchData();
   }, []);
 
-  // Función para buscar liquidaciones del edificio seleccionado
   const fetchLiquidaciones = () => {
     if (!consorcioSeleccionado) {
       setLiquidaciones([]);
@@ -41,7 +47,7 @@ export function Liquidaciones() {
     }
     
     setCargando(true);
-    axios.get(`http://127.0.0.1:8000/api/liquidaciones/cabeceras/?consorcio_id=${consorcioSeleccionado}`)
+    api.get(`liquidaciones/cabeceras/?consorcio_id=${consorcioSeleccionado}`)
       .then(res => {
         setLiquidaciones(res.data);
         setCargando(false);
@@ -58,7 +64,7 @@ export function Liquidaciones() {
 
   const abrirModalCrear = () => {
     setFormData({
-      consorcio: consorcioSeleccionado, // Lo atamos automáticamente al edificio actual
+      consorcio: consorcioSeleccionado,
       periodo: '',
       tipo_liquidacion: 'ORDINARIA',
       monto_total: 0,
@@ -70,16 +76,38 @@ export function Liquidaciones() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      await axios.post('http://127.0.0.1:8000/api/liquidaciones/cabeceras/', formData);
+      await api.post('liquidaciones/cabeceras/', formData);
       setIsModalOpen(false);
-      fetchLiquidaciones(); // Refrescamos la grilla
+      fetchLiquidaciones(); 
     } catch (error) {
       console.error("Error exacto de Django:", error.response?.data);
-      alert("Faltan datos obligatorios. Revisá la consola.");
+      alert("Error al crear liquidación: " + JSON.stringify(error.response?.data || error.message));
     }
   };
 
-  // Función para mostrar el nombre del período en la tabla (en vez del ID)
+  // Función para crear período vinculado al consorcio seleccionado
+  const handleCrearPeriodo = async (e) => {
+    e.preventDefault();
+    if (!consorcioSeleccionado) {
+      alert("Por favor, seleccioná un edificio primero antes de crear un período.");
+      return;
+    }
+
+    try {
+      await api.post('core/periodos/', { 
+        nombre: nombrePeriodo,
+        consorcio: consorcioSeleccionado 
+      });
+      alert(`Período creado con éxito.`);
+      setNombrePeriodo('');
+      setIsPeriodoModalOpen(false);
+      fetchData(); 
+    } catch (error) {
+      console.error("Error al crear período:", error.response?.data);
+      alert("Error de Django: " + JSON.stringify(error.response?.data || error.message));
+    }
+  };
+
   const getNombrePeriodo = (id_periodo) => {
     const p = periodos.find(per => per.id_periodo === id_periodo);
     return p ? p.nombre : 'Desconocido';
@@ -87,20 +115,37 @@ export function Liquidaciones() {
 
   return (
     <div className="space-y-6 relative">
-      <div className="flex justify-between items-center mb-8">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
         <div>
           <h1 className="text-3xl font-extrabold text-gray-900">Liquidaciones de Expensas</h1>
           <p className="text-gray-500 mt-2">Gestioná los gastos y el cierre de mes por edificio.</p>
         </div>
         
-        <button 
-          onClick={abrirModalCrear}
-          disabled={!consorcioSeleccionado}
-          className="bg-purple-600 hover:bg-purple-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white px-4 py-2 rounded-lg font-medium transition flex items-center gap-2"
-        >
-          <PlusCircle className="w-5 h-5" />
-          Nueva Liquidación
-        </button>
+        <div className="flex gap-3">
+          <button 
+            onClick={() => {
+              if (!consorcioSeleccionado) {
+                alert("Seleccioná un edificio primero en el buscador de abajo.");
+                return;
+              }
+              setIsPeriodoModalOpen(true);
+            }}
+            disabled={!consorcioSeleccionado}
+            className="bg-white border-2 border-purple-600 text-purple-700 hover:bg-purple-50 disabled:border-gray-300 disabled:text-gray-400 disabled:bg-gray-50 px-4 py-2 rounded-lg font-bold transition flex items-center gap-2"
+          >
+            <Calendar className="w-5 h-5" />
+            + Nuevo Mes
+          </button>
+
+          <button 
+            onClick={abrirModalCrear}
+            disabled={!consorcioSeleccionado}
+            className="bg-purple-600 hover:bg-purple-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white px-4 py-2 rounded-lg font-medium transition flex items-center gap-2"
+          >
+            <PlusCircle className="w-5 h-5" />
+            Nueva Liquidación
+          </button>
+        </div>
       </div>
 
       <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-center gap-4">
@@ -174,7 +219,6 @@ export function Liquidaciones() {
                     </span>
                   </td>
                   <td className="p-4 text-right">
-                    {/* ACÁ ESTÁ EL BOTÓN ACTUALIZADO */}
                     <button 
                       onClick={() => navigate(`/portal/liquidaciones/${liq.id_liquidacion}`)}
                       className="text-purple-600 font-medium hover:underline"
@@ -189,7 +233,7 @@ export function Liquidaciones() {
         </div>
       )}
 
-      {/* --- MODAL DE CREACIÓN DE LIQUIDACIÓN --- */}
+      {/* Modal de Creación de Liquidación */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
@@ -201,7 +245,6 @@ export function Liquidaciones() {
             </div>
             
             <form onSubmit={handleSubmit} className="p-6 space-y-4">
-              
               <div className="space-y-2">
                 <label className="text-sm font-medium text-gray-700">Período (Mes de Expensas)</label>
                 <select 
@@ -245,6 +288,41 @@ export function Liquidaciones() {
                   className="flex-1 px-4 py-3 bg-purple-600 text-white rounded-lg font-medium hover:bg-purple-700 transition shadow-lg shadow-purple-200"
                 >
                   Generar Cabecera
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Crear Período (Mes) con Selector Nativo */}
+      {isPeriodoModalOpen && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden">
+            <div className="bg-purple-600 p-6 text-center">
+              <Calendar className="w-8 h-8 text-white mx-auto mb-2" />
+              <h2 className="text-xl font-bold text-white">Habilitar Nuevo Mes</h2>
+              <p className="text-purple-200 text-sm mt-1">Seleccioná el período fiscal</p>
+            </div>
+            
+            <form onSubmit={handleCrearPeriodo} className="p-6 space-y-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-gray-700">Mes y Año</label>
+                <input 
+                  type="month" required 
+                  className="w-full p-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none bg-white font-medium"
+                  value={nombrePeriodo} 
+                  onChange={(e) => setNombrePeriodo(e.target.value)} 
+                />
+                <p className="text-xs text-gray-400">Seleccioná de forma segura el mes contable.</p>
+              </div>
+
+              <div className="pt-4 flex gap-3">
+                <button type="button" onClick={() => setIsPeriodoModalOpen(false)} className="flex-1 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg font-medium hover:bg-gray-200 transition">
+                  Cancelar
+                </button>
+                <button type="submit" className="flex-1 px-4 py-2 bg-purple-600 text-white rounded-lg font-medium hover:bg-purple-700 transition shadow-md shadow-purple-200">
+                  Guardar Mes
                 </button>
               </div>
             </form>

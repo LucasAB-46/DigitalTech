@@ -1,8 +1,10 @@
-import { useNavigate } from 'react-router-dom';
-import { LayoutDashboard, Users, FileText, CreditCard, LogOut, Building } from 'lucide-react';
+import { useNavigate, NavLink, useLocation } from 'react-router-dom';
+// Agregados los íconos UserSquare (Propietarios) y Briefcase (Proveedores)
+import { LayoutDashboard, Users, FileText, CreditCard, LogOut, Building, UserSquare, Briefcase } from 'lucide-react';
 
 export function Layout({ children }) {
   const navigate = useNavigate();
+  const location = useLocation(); // Hook para saber en qué ruta estamos
   
   const userData = JSON.parse(localStorage.getItem('user_data') || '{}');
   const rolUsuario = userData.rol;
@@ -11,6 +13,26 @@ export function Layout({ children }) {
     localStorage.clear();
     navigate('/');
   };
+
+  // Diccionario actualizado para cambiar el título del Header dinámicamente
+  const titulosHeader = {
+    '/portal': 'Panel Principal',
+    '/portal/consorcios': 'Gestión de Consorcios y UFs',
+    '/portal/propietarios': 'Directorio de Propietarios',
+    '/portal/proveedores': 'Gestión de Proveedores',
+    '/portal/liquidaciones': 'Liquidaciones de Expensas',
+    '/portal/cobranzas': 'Control de Cobranzas',
+  };
+  // Si la ruta exacta no está en el diccionario, mostramos "Dashboard" por defecto
+  const tituloActual = titulosHeader[location.pathname] || 'Dashboard';
+
+  // Función auxiliar para darle estilo al menú según si está activo o no
+  const linkClasses = ({ isActive }) => 
+    `w-full flex items-center gap-3 px-4 py-3 rounded-lg font-medium transition ${
+      isActive 
+        ? 'bg-purple-600 text-white shadow-md' // Estilo ACTIVO
+        : 'hover:bg-slate-800 text-slate-300'  // Estilo INACTIVO
+    }`;
 
   return (
     <div className="flex h-screen bg-gray-100">
@@ -22,54 +44,56 @@ export function Layout({ children }) {
           <span className="text-xl font-bold">Consorcio Up</span>
         </div>
         
-        <nav className="flex-1 p-4 space-y-2">
+        {/* Le agregamos overflow-y-auto por si el menú crece mucho en pantallas chicas */}
+        <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
           {/* BOTÓN HOME */}
-          <button 
-            onClick={() => navigate('/portal')}
-            className="w-full flex items-center gap-3 px-4 py-3 bg-purple-600 rounded-lg text-white font-medium transition"
-          >
+          <NavLink to="/portal" end className={linkClasses}>
             <LayoutDashboard className="w-5 h-5" />
             Panel Principal
-          </button>
+          </NavLink>
 
           {/* MENÚ EXCLUSIVO DEL ADMINISTRADOR */}
           {rolUsuario === 'administrador' && (
             <>
-              <button 
-                onClick={() => navigate('/portal/consorcios')}
-                className="w-full flex items-center gap-3 px-4 py-3 hover:bg-slate-800 rounded-lg text-slate-300 font-medium transition"
-              >
+              <NavLink to="/portal/consorcios" className={linkClasses}>
                 <Users className="w-5 h-5" />
                 Consorcios y UFs
-              </button>
-              <button 
-                onClick={() => navigate('/portal/liquidaciones')}
-                className="w-full flex items-center gap-3 px-4 py-3 hover:bg-slate-800 rounded-lg text-slate-300 font-medium transition">
+              </NavLink>
+              
+              <NavLink to="/portal/propietarios" className={linkClasses}>
+                <UserSquare className="w-5 h-5" />
+                Propietarios
+              </NavLink>
+              
+              <NavLink to="/portal/proveedores" className={linkClasses}>
+                <Briefcase className="w-5 h-5" />
+                Proveedores
+              </NavLink>
+
+              <NavLink to="/portal/liquidaciones" className={linkClasses}>
                 <FileText className="w-5 h-5" />
                 Liquidaciones
-              </button>
+              </NavLink>
               
-              {/* --- ACÁ ESTABA EL PROBLEMA: AHORA SÍ NAVEGA A COBRANZAS --- */}
-              <button 
-                onClick={() => navigate('/portal/cobranzas')}
-                className="w-full flex items-center gap-3 px-4 py-3 hover:bg-slate-800 rounded-lg text-slate-300 font-medium transition">
+              <NavLink to="/portal/cobranzas" className={linkClasses}>
                 <CreditCard className="w-5 h-5" />
                 Cobranzas
-              </button>
+              </NavLink>
             </>
           )}
 
           {/* MENÚ EXCLUSIVO DEL PROPIETARIO */}
           {rolUsuario === 'propietario' && (
             <>
-              <button className="w-full flex items-center gap-3 px-4 py-3 hover:bg-slate-800 rounded-lg text-slate-300 font-medium transition">
+              <NavLink to="/portal/mis-expensas" className={linkClasses}>
                 <CreditCard className="w-5 h-5" />
                 Mis Expensas
-              </button>
-              <button className="w-full flex items-center gap-3 px-4 py-3 hover:bg-slate-800 rounded-lg text-slate-300 font-medium transition">
+              </NavLink>
+              
+              <NavLink to="/portal/mis-recibos" className={linkClasses}>
                 <FileText className="w-5 h-5" />
                 Mis Recibos
-              </button>
+              </NavLink>
             </>
           )}
         </nav>
@@ -87,8 +111,9 @@ export function Layout({ children }) {
 
       {/* CONTENIDO PRINCIPAL */}
       <main className="flex-1 flex flex-col overflow-hidden">
-        <header className="h-16 bg-white border-b flex items-center justify-between px-8 shadow-sm">
-          <h2 className="text-xl font-semibold text-gray-800">Dashboard</h2>
+        <header className="h-16 bg-white border-b flex items-center justify-between px-8 shadow-sm shrink-0">
+          <h2 className="text-xl font-semibold text-gray-800">{tituloActual}</h2>
+          
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 bg-purple-100 text-purple-700 rounded-full flex items-center justify-center font-bold">
               {userData.nombre ? userData.nombre.charAt(0).toUpperCase() : 'U'}

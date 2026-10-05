@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Search, PlusCircle, CreditCard, X, Receipt } from 'lucide-react';
-import axios from 'axios';
+import api from '../../utils/api'; 
 
 export function Cobranzas() {
   // Datos del sistema
@@ -18,7 +18,7 @@ export function Cobranzas() {
   // Estados del Modal
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [formData, setFormData] = useState({
-    periodo: '',
+    periodo: '', // <-- Apunta correctamente al campo 'periodo' del modelo de Django
     metodo_pago: '',
     monto_pagado: '',
     tipo_pago: 'TOTAL',
@@ -27,9 +27,9 @@ export function Cobranzas() {
 
   // 1. Al cargar la pantalla, traemos los combos básicos
   useEffect(() => {
-    axios.get('http://127.0.0.1:8000/api/core/consorcios/').then(res => setConsorcios(res.data));
-    axios.get('http://127.0.0.1:8000/api/core/periodos/').then(res => setPeriodos(res.data));
-    axios.get('http://127.0.0.1:8000/api/cobranzas/tipos-pago/').then(res => setTiposPago(res.data));
+    api.get('core/consorcios/').then(res => setConsorcios(res.data)).catch(err => console.error("Error consorcios:", err));
+    api.get('core/periodos/').then(res => setPeriodos(res.data)).catch(err => console.error("Error periodos:", err));
+    api.get('cobranzas/tipos-pago/').then(res => setTiposPago(res.data)).catch(err => console.error("Error tipos pago:", err));
   }, []);
 
   // 2. Si cambia el consorcio, traemos sus UFs
@@ -37,8 +37,9 @@ export function Cobranzas() {
     setUfSeleccionada('');
     setPagos([]);
     if (consorcioSeleccionado) {
-      axios.get(`http://127.0.0.1:8000/api/cobranzas/ufs/?consorcio_id=${consorcioSeleccionado}`)
-        .then(res => setUfs(res.data));
+      api.get(`cobranzas/ufs/?consorcio_id=${consorcioSeleccionado}`)
+        .then(res => setUfs(res.data))
+        .catch(err => console.error("Error UFs:", err));
     } else {
       setUfs([]);
     }
@@ -51,7 +52,7 @@ export function Cobranzas() {
       return;
     }
     setCargando(true);
-    axios.get(`http://127.0.0.1:8000/api/cobranzas/pagos/?unidad_funcional=${ufSeleccionada}`)
+    api.get(`cobranzas/pagos/?unidad_funcional=${ufSeleccionada}`)
       .then(res => {
         setPagos(res.data);
         setCargando(false);
@@ -63,7 +64,7 @@ export function Cobranzas() {
     fetchPagos();
   }, [ufSeleccionada]);
 
-  // Funciones de ayuda para mostrar nombres en vez de IDs en la tabla
+  // Funciones de ayuda
   const getNombrePeriodo = (id) => periodos.find(p => p.id_periodo === id)?.nombre || 'Desconocido';
   const getNombreMetodo = (id) => tiposPago.find(t => t.id_tipo_pago === id)?.nombre || 'Desconocido';
 
@@ -74,12 +75,11 @@ export function Cobranzas() {
       const payload = {
         ...formData,
         unidad_funcional: ufSeleccionada,
-        saldo_pendiente: 0.00, // Por ahora asumimos que paga todo o no deja saldo
-        // El modelo exige un ID de transacción único. Si paga en efectivo y lo deja vacío, generamos uno automático.
+        saldo_pendiente: 0.00, 
         id_transaccion_pasarela: formData.id_transaccion_pasarela || `REC-${Date.now()}`
       };
       
-      await axios.post('http://127.0.0.1:8000/api/cobranzas/pagos/', payload);
+      await api.post('cobranzas/pagos/', payload);
       setIsModalOpen(false);
       
       // Limpiamos el formulario
@@ -91,7 +91,7 @@ export function Cobranzas() {
       fetchPagos();
     } catch (error) {
       console.error("Error al registrar pago:", error.response?.data);
-      alert("Faltan datos o hubo un error. Revisá la consola.");
+      alert("Error al registrar pago: " + JSON.stringify(error.response?.data || error.message));
     }
   };
 
@@ -217,14 +217,18 @@ export function Cobranzas() {
               
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-gray-700">Período (Mes que paga)</label>
+                  <label className="text-sm font-medium text-gray-700">Período (Mes de Expensas)</label>
                   <select 
                     required className="w-full p-3 border border-gray-200 rounded-lg bg-white focus:ring-2 focus:ring-purple-500"
                     value={formData.periodo}
                     onChange={(e) => setFormData({...formData, periodo: e.target.value})}
                   >
-                    <option value="">-- Elegir --</option>
-                    {periodos.map(p => <option key={p.id_periodo} value={p.id_periodo}>{p.nombre}</option>)}
+                    <option value="">-- Seleccionar Período --</option>
+                    {periodos.map(p => (
+                      <option key={p.id_periodo} value={p.id_periodo}>
+                        {p.nombre}
+                      </option>
+                    ))}
                   </select>
                 </div>
                 <div className="space-y-2">

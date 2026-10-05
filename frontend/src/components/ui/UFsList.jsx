@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Home, User, X } from 'lucide-react';
-import axios from 'axios';
+import api from '../../utils/api'; 
 
 export function UFsList() {
   const { id } = useParams();
@@ -19,16 +19,15 @@ export function UFsList() {
   const [formData, setFormData] = useState({
     consorcio: id, 
     numero_uf: '',
-    tipo_unidad: '',  // Ahora es un ID que viene del backend
-    propietario: '',  // Nuevo campo para el dueño
+    tipo_unidad: '',  
+    propietario: '',  
     piso: '',
     departamento: '',
     coeficiente: '' 
   });
 
-  // 1. Traemos las UFs
   const fetchUfs = () => {
-    axios.get(`http://127.0.0.1:8000/api/cobranzas/ufs/?consorcio_id=${id}`)
+    api.get(`cobranzas/ufs/?consorcio_id=${id}`)
       .then(respuesta => {
         setUfs(respuesta.data);
         setCargando(false);
@@ -39,13 +38,12 @@ export function UFsList() {
       });
   };
 
-  // 2. Traemos a las personas y los tipos de unidad para los selectores
   const fetchDatosExtra = () => {
-    axios.get('http://127.0.0.1:8000/api/core/propietarios/')
+    api.get('core/propietarios/')
       .then(res => setPropietarios(res.data))
       .catch(err => console.error("Error Propietarios:", err));
 
-    axios.get('http://127.0.0.1:8000/api/cobranzas/tipos-unidad/')
+    api.get('cobranzas/tipos-unidad/')
       .then(res => setTiposUnidad(res.data))
       .catch(err => console.error("Error Tipos:", err));
   };
@@ -88,26 +86,28 @@ export function UFsList() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    // Si el select quedó vacío, mandamos null para que Django no se queje
-    const dataToSend = { ...formData };
+    // Transformamos los datos vacíos a null y el coeficiente a número decimal
+    const dataToSend = { 
+      ...formData,
+      coeficiente: formData.coeficiente === '' ? 0 : parseFloat(formData.coeficiente)
+    };
     if (!dataToSend.propietario) dataToSend.propietario = null;
     if (!dataToSend.tipo_unidad) dataToSend.tipo_unidad = null;
 
     try {
       if (modoEdicion) {
-        await axios.put(`http://127.0.0.1:8000/api/cobranzas/ufs/${ufId}/`, dataToSend);
+        await api.put(`cobranzas/ufs/${ufId}/`, dataToSend);
       } else {
-        await axios.post('http://127.0.0.1:8000/api/cobranzas/ufs/', dataToSend);
+        await api.post('cobranzas/ufs/', dataToSend);
       }
       setIsModalOpen(false);
       fetchUfs();
     } catch (error) {
       console.error("Error exacto de Django:", error.response?.data);
-      alert("Hubo un error al guardar. Mirá la consola.");
+      alert("Error al guardar UF: " + JSON.stringify(error.response?.data || error.message));
     }
   };
 
-  // Funciones de ayuda para traducir IDs a nombres en la tabla
   const getPropietarioNombre = (id_prop) => {
     if (!id_prop) return <span className="text-gray-400 italic">Sin dueño</span>;
     const p = propietarios.find(prop => prop.id_propietario === id_prop);
@@ -217,7 +217,6 @@ export function UFsList() {
         </div>
       )}
 
-      {/* --- MODAL DE CREACIÓN / EDICIÓN --- */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
@@ -231,8 +230,6 @@ export function UFsList() {
             </div>
             
             <form onSubmit={handleSubmit} className="p-6 space-y-4">
-              
-              {/* --- NUEVO: SELECTOR DE PROPIETARIO --- */}
               <div className="space-y-2">
                 <label className="text-sm font-medium text-gray-700">Propietario / Dueño</label>
                 <select 
@@ -260,7 +257,6 @@ export function UFsList() {
                   />
                 </div>
 
-                {/* --- NUEVO: SELECTOR DE TIPO DE UNIDAD --- */}
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-gray-700">Tipo</label>
                   <select 

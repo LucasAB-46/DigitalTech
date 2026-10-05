@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Building, MapPin, CheckCircle, X } from 'lucide-react';
-import axios from 'axios';
+import api from '../../utils/api';
 
 export function ConsorciosList() {
   const navigate = useNavigate(); // <-- Agregamos el enrutador
@@ -21,7 +21,7 @@ export function ConsorciosList() {
   });
 
   const fetchConsorcios = () => {
-    axios.get('http://127.0.0.1:8000/api/core/consorcios/')
+    api.get('core/consorcios/')
       .then(respuesta => {
         setConsorcios(respuesta.data);
         setCargando(false);
@@ -56,9 +56,9 @@ export function ConsorciosList() {
     e.preventDefault();
     try {
       if (modoEdicion) {
-        await axios.put(`http://127.0.0.1:8000/api/core/consorcios/${consorcioId}/`, formData);
+        await api.put(`core/consorcios/${consorcioId}/`, formData);
       } else {
-        await axios.post('http://127.0.0.1:8000/api/core/consorcios/', formData);
+        await api.post('core/consorcios/', formData);
       }
       setIsModalOpen(false);
       fetchConsorcios();

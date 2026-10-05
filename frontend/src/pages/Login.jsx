@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import api from '../utils/api';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
@@ -19,26 +19,36 @@ export function Login() {
     setErrorMsg('');
     
     try {
-      // 1. Apuntamos a NUESTRA nueva ruta y mandamos 'usuario' (como lo espera Django)
-      const response = await axios.post('http://127.0.0.1:8000/api/core/login/', {
+      const response = await api.post('core/login/', { 
         usuario: username,
         password: password
       });
 
-      // 2. Si Django dice que OK, guardamos la data y el rol que nos devolvió
-      // response.data trae: { mensaje: "...", rol: "propietario", id: 1, nombre: "..." }
-      localStorage.setItem('user_role', response.data.rol);
-      localStorage.setItem('user_data', JSON.stringify(response.data));
+      // Extraemos access y el objeto user_data exactamente como lo manda Django
+      const { access, refresh, user_data } = response.data;
+
+      // 1. Guardamos los tokens
+      if (access) localStorage.setItem('access_token', access);
+      if (refresh) localStorage.setItem('refresh_token', refresh);
+  
+      // 2. Extraemos el rol DESDE user_data y lo guardamos
+      const rolNormalizado = user_data?.rol ? user_data.rol.toLowerCase() : '';
+      localStorage.setItem('user_role', rolNormalizado);
       
-      // 3. Lo dejamos pasar al portal
+      // 3. Guardamos el objeto user_data completo (que trae el id y el nombre de Monica)
+      localStorage.setItem('user_data', JSON.stringify(user_data));
+  
+      // 4. Navegamos al portal
       navigate('/portal');
+  
+
       
     } catch (error) {
-      // Si el backend nos rebota (Error 401)
+      // Manejo de errores
       if (error.response && error.response.status === 401) {
         setErrorMsg('Usuario o contraseña incorrectos. Intentá nuevamente.');
       } else {
-        setErrorMsg('Error de conexión con el servidor.');
+        setErrorMsg('Error de conexión con el servidor. Revisá si el backend está corriendo.');
       }
     } finally {
       setIsLoading(false);
